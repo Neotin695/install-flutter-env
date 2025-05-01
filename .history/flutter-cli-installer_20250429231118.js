@@ -50,38 +50,20 @@ function installAll() {
 }
 
 function configureVSCodeForFlutter() {
-  console.log("🔧 Installing Flutter-specific extensions for VS Code...");
-  
-  const extensions = [
-    "aksharpatel47.vscode-flutter-helper",
-    "circlecodesolution.ccs-flutter-color",
-    "dart-code.dart-code",
-    "dart-code.flutter",
-    "felixangelov.bloc",
-    "fullystackeddevelopment.flutter-clean-architecture-scaffold",
-    "google.arb-editor",
-    "hirantha.json-to-dart",
-    "hzgood.dart-data-class-generator",
-    "jeroen-meijer.pubspec-assist",
-    "localizely.flutter-intl",
-    "luanpotter.dart-import",
-    "muhammadnorzariman.jsontodart",
-    "oscarcs.dart-syntax-highlighting-only",
-    "parthr2031.colorful-comments",
-    "peterhdd.dartgettersetter",
-    "weekit.flutter-assets-gen2",
-    "zealousfoundry.flutter-extract-to-arb"
-  ];
-
-  extensions.forEach(extension => {
-    execCommand(`code --install-extension ${extension}`, `Installing ${extension}`);
-  });
+  console.log("🔧 Installing Flutter and Dart extensions for VS Code...");
+  execCommand(
+    "code --install-extension Dart-Code.flutter",
+    "Installing Flutter extension for Visual Studio Code"
+  );
+  execCommand(
+    "code --install-extension Dart-Code.dart-code",
+    "Installing Dart extension for Visual Studio Code"
+  );
 }
 
 function configureAndroidStudio() {
   console.log("🔧 Setting up Android Studio for Flutter...");
   execCommand("flutter doctor --android-licenses", "Accepting Android licenses");
-  execCommand("flutter doctor", "Running flutter doctor to check the environment");
 }
 
 function configureFlutterEnvironment() {
@@ -95,39 +77,11 @@ function configureFlutterEnvironment() {
   }
 }
 
-function ensureFlutterInPath() {
-  console.log("🔧 Ensuring Flutter is in PATH...");
-
-  const flutterBinPath = "C:\\tools\\flutter\\bin";  // Change this path if Flutter is installed in a different location
-
-  // Check if Flutter is in PATH
-  const pathEnv = process.env.PATH.split(';');
-  if (!pathEnv.includes(flutterBinPath)) {
-    console.log("⬇ Adding Flutter to PATH...");
-
-    // Add Flutter to User PATH
-    execCommand(`setx PATH "${process.env.PATH};${flutterBinPath}"`, "Adding Flutter to User PATH");
-
-    // Add Flutter to System PATH
-    execCommand(`reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /f /d "%PATH%;${flutterBinPath}"`, "Adding Flutter to System PATH");
-  } else {
-    console.log("✅ Flutter is already in PATH.");
-  }
-}
-
-function restartTerminalAsAdmin() {
-  console.log("🔧 Restarting terminal as Administrator to apply changes...");
-  // Restart the terminal as administrator
-  execCommand("start powershell -Command \"Start-Process powershell -Verb runAs\"", "Restarting Terminal as Admin");
-}
-
 (function main() {
   installChocoIfNeeded();
   installAll();
-  ensureFlutterInPath();  // Ensure Flutter is added to PATH
   configureVSCodeForFlutter();
   configureAndroidStudio();
   configureFlutterEnvironment();
-  restartTerminalAsAdmin();  // Restart terminal as Admin to apply changes
   console.log("🎉 Flutter development environment is fully ready!");
 })();

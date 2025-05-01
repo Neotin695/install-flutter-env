@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { execSync } = require("child_process");
+const fs = require("fs");
 
 function execCommand(command, desc) {
   try {
@@ -98,36 +99,25 @@ function configureFlutterEnvironment() {
 function ensureFlutterInPath() {
   console.log("🔧 Ensuring Flutter is in PATH...");
 
-  const flutterBinPath = "C:\\tools\\flutter\\bin";  // Change this path if Flutter is installed in a different location
+  const flutterBinPath = "C:\\flutter\\bin";  // Change this path if Flutter is installed in a different location
 
   // Check if Flutter is in PATH
   const pathEnv = process.env.PATH.split(';');
   if (!pathEnv.includes(flutterBinPath)) {
     console.log("⬇ Adding Flutter to PATH...");
-
-    // Add Flutter to User PATH
-    execCommand(`setx PATH "${process.env.PATH};${flutterBinPath}"`, "Adding Flutter to User PATH");
-
-    // Add Flutter to System PATH
-    execCommand(`reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /f /d "%PATH%;${flutterBinPath}"`, "Adding Flutter to System PATH");
+    process.env.PATH += `;${flutterBinPath}`;
+    execCommand(`setx PATH "${process.env.PATH}"`, "Adding Flutter to system PATH");
   } else {
     console.log("✅ Flutter is already in PATH.");
   }
 }
 
-function restartTerminalAsAdmin() {
-  console.log("🔧 Restarting terminal as Administrator to apply changes...");
-  // Restart the terminal as administrator
-  execCommand("start powershell -Command \"Start-Process powershell -Verb runAs\"", "Restarting Terminal as Admin");
-}
-
 (function main() {
   installChocoIfNeeded();
   installAll();
-  ensureFlutterInPath();  // Ensure Flutter is added to PATH
+  ensureFlutterInPath();
   configureVSCodeForFlutter();
   configureAndroidStudio();
   configureFlutterEnvironment();
-  restartTerminalAsAdmin();  // Restart terminal as Admin to apply changes
   console.log("🎉 Flutter development environment is fully ready!");
 })();

@@ -98,7 +98,7 @@ function configureFlutterEnvironment() {
 function ensureFlutterInPath() {
   console.log("🔧 Ensuring Flutter is in PATH...");
 
-  const flutterBinPath = "C:\\tools\\flutter\\bin";  // Change this path if Flutter is installed in a different location
+  const flutterBinPath = "C:\\flutter\\bin";  // Change this path if Flutter is installed in a different location
 
   // Check if Flutter is in PATH
   const pathEnv = process.env.PATH.split(';');

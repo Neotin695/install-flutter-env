@@ -1,6 +1,6 @@
 {
   "name": "flutter-env-installer",
-  "version": "2.1.0",
+  "version": "2.0.0",
   "description": "CLI tool to set up Flutter environment automatically on Windows",
   "main": "flutter-cli-installer.js",
   "bin": {
