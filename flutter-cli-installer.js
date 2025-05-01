@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 
 const { execSync } = require("child_process");
+const fs = require("fs");
 
-function execCommand(command, desc) {
+function execCommand(command, desc, ignoreErrors = false) {
   try {
-    console.log(`🔧 ${desc}...`);
+    console.log(`\n🔧 ${desc}...`);
     execSync(command, { stdio: "inherit" });
   } catch (error) {
-    console.error(`❌ Failed: ${desc}`);
-    process.exit(1);
+    if (ignoreErrors) {
+      console.warn(`⚠️ Ignored failure: ${desc}`);
+    } else {
+      console.error(`❌ Failed: ${desc}`);
+      process.exit(1);
+    }
   }
 }
 
@@ -24,12 +29,25 @@ function checkIfInstalled(command, toolName) {
 }
 
 function installChocoIfNeeded() {
+  const chocoFolder = "C:\\ProgramData\\chocolatey";
+
   if (!checkIfInstalled("choco -v", "Chocolatey")) {
-    console.log("⬇ Installing Chocolatey...");
+    console.log("⚠️ Chocolatey not found or broken.");
+
+    if (fs.existsSync(chocoFolder)) {
+      console.log("🧹 Found existing Chocolatey folder. Deleting...");
+      execCommand(`rmdir /s /q \"${chocoFolder}\"`, "Deleting old Chocolatey folder");
+    }
+
     execCommand(
       `powershell -NoProfile -ExecutionPolicy Bypass -Command  Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))`,
       "Installing Chocolatey"
     );
+
+    if (!checkIfInstalled("choco -v", "Chocolatey (post-install)")) {
+      console.error("❌ Chocolatey installation still failed. Please check manually.");
+      process.exit(1);
+    }
   }
 }
 
@@ -42,16 +60,32 @@ function installAll() {
   ];
 
   tools.forEach(tool => {
-    // Only install if not installed already
     if (!checkIfInstalled(tool.checkCommand, tool.desc)) {
       execCommand(`choco install ${tool.name} -y`, tool.desc);
     }
   });
 }
 
+function ensureFlutterInPath() {
+  console.log("🔧 Ensuring Flutter is in PATH...");
+  const flutterBinPath = "C:\\tools\\flutter\\bin";
+  const pathEnv = process.env.PATH.split(';');
+
+  if (!pathEnv.includes(flutterBinPath)) {
+    console.log("⬇ Adding Flutter to PATH...");
+
+    execCommand(`setx PATH \"${process.env.PATH};${flutterBinPath}\"`, "Adding Flutter to User PATH");
+    execCommand(`reg add \"HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment\" /v PATH /t REG_EXPAND_SZ /f /d \"%PATH%;${flutterBinPath}\"`, "Adding Flutter to System PATH");
+
+    process.env.PATH += `;${flutterBinPath}`;
+  } else {
+    console.log("✅ Flutter is already in PATH.");
+  }
+}
+
 function configureVSCodeForFlutter() {
   console.log("🔧 Installing Flutter-specific extensions for VS Code...");
-  
+
   const extensions = [
     "aksharpatel47.vscode-flutter-helper",
     "circlecodesolution.ccs-flutter-color",
@@ -78,56 +112,68 @@ function configureVSCodeForFlutter() {
   });
 }
 
-function configureAndroidStudio() {
-  console.log("🔧 Setting up Android Studio for Flutter...");
-  execCommand("flutter doctor --android-licenses", "Accepting Android licenses");
+async function configureAndroidStudio() {
+  console.log("🔧 Opening Android Studio to trigger first-time setup...");
+
+  execCommand("start /B \"\" \"C:\\Program Files\\Android\\Android Studio\\bin\\studio64.exe\"", "Launching Android Studio");
+
+  const sdkPath = `C:\\Users\\${process.env.USERNAME}\\AppData\\Local\\Android\\Sdk`;
+  const cmdlinePath = `${sdkPath}\\cmdline-tools`;
+
+  console.log("⏳ Waiting for Android Studio to install SDK tools...");
+
+  const maxWaitTime = 300000;
+  const checkInterval = 5000;
+
+  const waitForCmdlineTools = async () => {
+    const start = Date.now();
+    while (!fs.existsSync(cmdlinePath)) {
+      const elapsed = Date.now() - start;
+      if (elapsed > maxWaitTime) {
+        console.error("❌ Timed out waiting for Android SDK Command Line Tools. Please install them manually then rerun the script.");
+        process.exit(1);
+      }
+      console.log(`⏳ Still waiting... (${Math.floor(elapsed / 1000)}s elapsed)`);
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
+    }
+    console.log("✅ Android SDK tools detected!");
+  };
+
+  await waitForCmdlineTools();
+
+  execCommand("flutter doctor --android-licenses", "Accepting Android SDK licenses", true);
   execCommand("flutter doctor", "Running flutter doctor to check the environment");
 }
 
 function configureFlutterEnvironment() {
   console.log("🔧 Configuring Flutter environment...");
   try {
-    execSync("flutter doctor", { stdio: "inherit" });
-    console.log("✅ Flutter environment is ready!");
+    const result = execSync("flutter doctor", { stdio: "pipe" }).toString();
+    console.log(result);
+
+    if (result.includes("Visual Studio") && result.includes("X")) {
+      console.warn("⚠️ Visual Studio is not installed. This is only required for Windows desktop apps.");
+    }
+
+    console.log("✅ Flutter environment is ready (for Android development)!");
   } catch (error) {
-    console.error("❌ Flutter environment configuration failed. Please check the error messages above.");
+    console.error("❌ Flutter environment configuration failed. Please open a new terminal and try again.");
     process.exit(1);
-  }
-}
-
-function ensureFlutterInPath() {
-  console.log("🔧 Ensuring Flutter is in PATH...");
-
-  const flutterBinPath = "C:\\tools\\flutter\\bin";  // Change this path if Flutter is installed in a different location
-
-  // Check if Flutter is in PATH
-  const pathEnv = process.env.PATH.split(';');
-  if (!pathEnv.includes(flutterBinPath)) {
-    console.log("⬇ Adding Flutter to PATH...");
-
-    // Add Flutter to User PATH
-    execCommand(`setx PATH "${process.env.PATH};${flutterBinPath}"`, "Adding Flutter to User PATH");
-
-    // Add Flutter to System PATH
-    execCommand(`reg add "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /f /d "%PATH%;${flutterBinPath}"`, "Adding Flutter to System PATH");
-  } else {
-    console.log("✅ Flutter is already in PATH.");
   }
 }
 
 function restartTerminalAsAdmin() {
   console.log("🔧 Restarting terminal as Administrator to apply changes...");
-  // Restart the terminal as administrator
   execCommand("start powershell -Command \"Start-Process powershell -Verb runAs\"", "Restarting Terminal as Admin");
 }
 
-(function main() {
+(async function main() {
   installChocoIfNeeded();
   installAll();
-  ensureFlutterInPath();  // Ensure Flutter is added to PATH
+  ensureFlutterInPath();
   configureVSCodeForFlutter();
-  configureAndroidStudio();
+  await configureAndroidStudio();
   configureFlutterEnvironment();
-  restartTerminalAsAdmin();  // Restart terminal as Admin to apply changes
+  restartTerminalAsAdmin();
   console.log("🎉 Flutter development environment is fully ready!");
 })();
